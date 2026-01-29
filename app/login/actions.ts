@@ -20,20 +20,15 @@ export async function login(formData: FormData) {
     return redirect(`/login?message=${encodeURIComponent('Email atau Password salah')}`)
   }
 
-  if (!data.user) {
-    return redirect('/login?message=Terjadi kesalahan sistem')
-  }
-
-  // 2. CEK ROLE (JABATAN) USER
+  // 2. Cek Role User
   const { data: userData } = await supabase
     .from('users')
     .select('role')
-    .eq('id', data.user.id)
+    .eq('id', data.user?.id)
     .single()
 
   revalidatePath('/', 'layout')
 
-  // 3. LOGIKA PENGALIHAN (REDIRECT)
   if (userData?.role === 'admin') {
     redirect('/admin')
   } else {
@@ -44,21 +39,20 @@ export async function login(formData: FormData) {
 export async function signup(formData: FormData) {
   const supabase = await createClient()
 
-  // 1. Ambil data
+  // 1. AMBIL DATA DARI FORM (Pastikan nama sesuai dengan input di page.tsx)
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const fullName = formData.get('full_name') as string
   const address = formData.get('address') as string
-  const nik = formData.get('nik') as string // Tambahkan NIK
+  const nik = formData.get('nik') as string // <--- Wajib ada
 
-  // 2. Validasi Sederhana
-  // Redirect error ke /register (BUKAN /login)
+  // 2. Validasi
   if (password.length < 6) return redirect('/register?message=Password minimal 6 karakter')
   if (!fullName) return redirect('/register?message=Nama Lengkap wajib diisi')
-  if (!address) return redirect('/register?message=Alamat wajib diisi')
   if (!nik) return redirect('/register?message=NIK wajib diisi')
+  if (!address) return redirect('/register?message=Alamat wajib diisi')
 
-  // 3. Daftar ke Supabase
+  // 3. DAFTAR KE SUPABASE (PENTING: Masukkan ke options -> data)
   const { error } = await supabase.auth.signUp({
     email,
     password,
@@ -66,16 +60,14 @@ export async function signup(formData: FormData) {
       data: {
         full_name: fullName,
         address: address,
-        nik: nik, // Simpan NIK juga ke metadata jika perlu
+        nik: nik, // <--- Data ini yang akan dibaca oleh Trigger Database
       },
     },
   })
 
   if (error) {
-    // Redirect error ke /register
     return redirect(`/register?message=${encodeURIComponent(error.message)}`)
   }
 
-  // Jika sukses, baru lempar ke Login
   return redirect('/login?message=Akun berhasil dibuat! Silakan Login.')
 }

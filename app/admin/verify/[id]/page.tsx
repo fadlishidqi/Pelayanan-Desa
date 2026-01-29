@@ -1,7 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-// Pastikan import ini mengarah ke file tempat Anda menyimpan fungsi updateStatus tadi
 import { updateStatus } from './actions' 
 import { 
   ArrowLeft, 
@@ -26,7 +25,7 @@ export default async function VerifyPage(props: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // 2. Ambil Data Lengkap
+  // 2. Ambil Data Lengkap (Request, User, Details, Documents)
   const { data: req } = await supabase
     .from('service_requests')
     .select(`
@@ -40,18 +39,34 @@ export default async function VerifyPage(props: {
 
   if (!req) return notFound()
 
-  // Helper URL Dokumen
+  /**
+   * Helper URL Dokumen
+   * Menangani path seperti: "7de2121c.../1769702900505-7e2zn.jpeg"
+   */
   const getDocUrl = (path: string) => {
-    return supabase.storage.from('documents').getPublicUrl(path).data.publicUrl
+    if (!path) return "#";
+    
+    // 1. Bersihkan path dari slash di awal jika ada
+    const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    
+    // 2. Encode path agar aman bagi browser (menghindari error karakter spesial)
+    const encodedPath = cleanPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
+    
+    // 3. Ambil Public URL dari bucket 'documents'
+    const { data } = supabase.storage
+      .from('documents')
+      .getPublicUrl(encodedPath);
+      
+    return data.publicUrl;
   }
 
-  // Ambil data form detail (JSON)
+  // Ambil data form detail dari JSON
   const formData = req.request_details[0]?.form_data || {}
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20 selection:bg-blue-100 selection:text-blue-900">
       
-      {/* BACKGROUND DECORATION (Blob Halus) */}
+      {/* BACKGROUND DECORATION */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
          <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-100/60 rounded-full mix-blend-multiply filter blur-[100px]"></div>
          <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-sky-100/60 rounded-full mix-blend-multiply filter blur-[100px]"></div>
@@ -59,7 +74,7 @@ export default async function VerifyPage(props: {
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-8">
         
-        {/* HEADER: Back Button & Title */}
+        {/* HEADER */}
         <div className="flex items-center gap-4 mb-8">
           <Link href="/admin" className="p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-sm group">
             <ArrowLeft className="w-5 h-5 text-slate-500 group-hover:text-slate-800" />
@@ -77,10 +92,8 @@ export default async function VerifyPage(props: {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* --- KOLOM KIRI: USER PROFILE & STATUS --- */}
+          {/* KOLOM KIRI: USER PROFILE */}
           <div className="space-y-6">
-            
-            {/* Kartu Profil Warga */}
             <div className="bg-white/80 backdrop-blur-xl border border-white/60 p-6 rounded-3xl shadow-lg shadow-slate-200/50">
               <div className="flex flex-col items-center text-center">
                 <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-sky-500 rounded-full flex items-center justify-center text-3xl font-bold text-white mb-4 shadow-lg shadow-blue-500/20">
@@ -115,7 +128,7 @@ export default async function VerifyPage(props: {
               </div>
             </div>
 
-            {/* Kartu Status Saat Ini */}
+            {/* Kartu Status Terkini */}
             <div className="bg-white/80 backdrop-blur-xl border border-white/60 p-6 rounded-3xl shadow-sm">
                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Status Terkini</h3>
                <div className={`p-4 rounded-xl border flex items-center gap-3 
@@ -137,13 +150,12 @@ export default async function VerifyPage(props: {
                   </div>
                </div>
             </div>
-
           </div>
 
-          {/* --- KOLOM KANAN: DETAIL FORM & DOKUMEN --- */}
+          {/* KOLOM KANAN: FORM & LAMPIRAN */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* 1. Detail Isi Form */}
+            {/* 1. Detail Form */}
             <div className="bg-white/90 backdrop-blur-xl border border-white/60 p-8 rounded-3xl shadow-lg shadow-slate-200/50">
                <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
                   <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
@@ -151,7 +163,7 @@ export default async function VerifyPage(props: {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-slate-800">Data {req.service_type}</h3>
-                    <p className="text-slate-500 text-xs">Rincian data yang diinput oleh pemohon</p>
+                    <p className="text-slate-500 text-xs">Rincian input dari pemohon</p>
                   </div>
                </div>
 
@@ -169,7 +181,7 @@ export default async function VerifyPage(props: {
                </div>
             </div>
 
-            {/* 2. Lampiran Dokumen */}
+            {/* 2. Lampiran Dokumen (Bagian yang diperbaiki) */}
             <div className="bg-white/80 backdrop-blur-xl border border-white/60 p-8 rounded-3xl shadow-sm">
                <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
@@ -180,7 +192,7 @@ export default async function VerifyPage(props: {
 
                {req.documents.length === 0 ? (
                  <div className="p-6 bg-slate-50 rounded-xl text-center border border-dashed border-slate-300">
-                    <p className="text-slate-500 italic text-sm">Tidak ada dokumen yang diupload.</p>
+                    <p className="text-slate-500 italic text-sm">Tidak ada dokumen.</p>
                  </div>
                ) : (
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -193,13 +205,14 @@ export default async function VerifyPage(props: {
                             <p className="text-sm font-bold text-slate-700 truncate capitalize">
                                 {doc.file_type.replace(/_/g, ' ')}
                             </p>
+                            {/* Link yang sudah diperbaiki */}
                             <a 
                               href={getDocUrl(doc.file_url)} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-0.5"
+                              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 mt-0.5"
                             >
-                              Buka File <ExternalLink className="w-3 h-3" />
+                              Buka Dokumen <ExternalLink className="w-3 h-3" />
                             </a>
                          </div>
                       </div>
@@ -208,37 +221,29 @@ export default async function VerifyPage(props: {
                )}
             </div>
 
-            {/* 3. TOMBOL AKSI (Hanya muncul jika status submitted) */}
+            {/* 3. Tombol Aksi */}
             {req.status === 'submitted' && (
               <div className="sticky bottom-6 z-20">
                   <div className="bg-white/90 backdrop-blur-md border border-slate-200 p-4 rounded-2xl shadow-2xl shadow-blue-900/10 flex flex-col sm:flex-row items-center justify-between gap-4">
                      <div className="text-center sm:text-left pl-2">
-                        <h3 className="font-bold text-slate-800">Konfirmasi Tindakan</h3>
-                        <p className="text-xs text-slate-500">Pilih keputusan untuk permohonan ini.</p>
+                        <h3 className="font-bold text-slate-800">Tindak Lanjuti</h3>
+                        <p className="text-xs text-slate-500">Tolak atau Setujui permohonan ini.</p>
                      </div>
                      <div className="flex gap-3 w-full sm:w-auto">
-                        
-                        {/* TOMBOL TOLAK -> Panggil updateStatus('rejected') */}
                         <form action={updateStatus.bind(null, req.id, 'rejected')} className="w-full sm:w-auto">
-                          <button className="w-full sm:w-auto px-6 py-3 bg-white border-2 border-red-100 text-red-600 font-bold rounded-xl hover:bg-red-50 hover:border-red-200 transition-all flex items-center justify-center gap-2">
-                            <XCircle className="w-5 h-5" />
-                            Tolak
+                          <button className="w-full sm:w-auto px-6 py-3 bg-white border-2 border-red-100 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-all flex items-center justify-center gap-2">
+                            <XCircle className="w-5 h-5" /> Tolak
                           </button>
                         </form>
-                        
-                        {/* TOMBOL TERIMA -> Panggil updateStatus('verified') */}
                         <form action={updateStatus.bind(null, req.id, 'verified')} className="w-full sm:w-auto">
-                          <button className="w-full sm:w-auto px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
-                            <CheckCircle2 className="w-5 h-5" />
-                            Setujui
+                          <button className="w-full sm:w-auto px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
+                            <CheckCircle2 className="w-5 h-5" /> Setujui
                           </button>
                         </form>
-
                      </div>
                   </div>
               </div>
             )}
-
           </div>
         </div>
       </div>

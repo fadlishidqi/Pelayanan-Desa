@@ -25,7 +25,6 @@ export async function login(formData: FormData) {
   }
 
   // 2. CEK ROLE (JABATAN) USER
-  // Ambil data dari tabel 'users' berdasarkan ID yang login
   const { data: userData } = await supabase
     .from('users')
     .select('role')
@@ -36,10 +35,8 @@ export async function login(formData: FormData) {
 
   // 3. LOGIKA PENGALIHAN (REDIRECT)
   if (userData?.role === 'admin') {
-    // Jika Admin -> Masuk ke Dashboard Admin
     redirect('/admin')
   } else {
-    // Jika Warga (User) -> Masuk ke Dashboard Warga
     redirect('/dashboard')
   }
 }
@@ -47,33 +44,38 @@ export async function login(formData: FormData) {
 export async function signup(formData: FormData) {
   const supabase = await createClient()
 
-  // 1. Ambil semua data dari Form
+  // 1. Ambil data
   const email = formData.get('email') as string
   const password = formData.get('password') as string
-  const fullName = formData.get('full_name') as string // Baru
-  const address = formData.get('address') as string   // Baru
+  const fullName = formData.get('full_name') as string
+  const address = formData.get('address') as string
+  const nik = formData.get('nik') as string // Tambahkan NIK
 
   // 2. Validasi Sederhana
-  if (password.length < 6) return redirect('/login?message=Password minimal 6 karakter')
-  if (!fullName) return redirect('/login?message=Nama Lengkap wajib diisi untuk pendaftaran')
-  if (!address) return redirect('/login?message=Alamat wajib diisi untuk pendaftaran')
+  // Redirect error ke /register (BUKAN /login)
+  if (password.length < 6) return redirect('/register?message=Password minimal 6 karakter')
+  if (!fullName) return redirect('/register?message=Nama Lengkap wajib diisi')
+  if (!address) return redirect('/register?message=Alamat wajib diisi')
+  if (!nik) return redirect('/register?message=NIK wajib diisi')
 
   // 3. Daftar ke Supabase
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      // Kirim data tambahan (Metadata) ke Trigger Database
       data: {
         full_name: fullName,
         address: address,
+        nik: nik, // Simpan NIK juga ke metadata jika perlu
       },
     },
   })
 
   if (error) {
-    return redirect(`/login?message=${encodeURIComponent(error.message)}`)
+    // Redirect error ke /register
+    return redirect(`/register?message=${encodeURIComponent(error.message)}`)
   }
 
+  // Jika sukses, baru lempar ke Login
   return redirect('/login?message=Akun berhasil dibuat! Silakan Login.')
 }
